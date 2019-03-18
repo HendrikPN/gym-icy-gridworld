@@ -22,8 +22,8 @@ class IcyGridWorldEnv(gym.Env):
             acceleration (int): The acceleration of the environment. Defaults to 0.
         """
         self._grid_size = grid_size
-        self._img_size = (np.array(self._grid_size) + np.array([2, 2])) * 7 #: image size is [(grid_size + walls) * 7]^2 pixels
         self._acceleration = acceleration
+        self._img_size = (np.array(self._grid_size) + np.array([2, 2])) * 7 #: image size is [(grid_size + walls) * 7]^2 pixels
 
         #:class:`gym.Box`: The specifications of the image to be used as observation.
         self.observation_space=gym.spaces.Box(low=0, high=1, shape=(self._img_size[0],self._img_size[1]), dtype=np.float32)
@@ -192,7 +192,7 @@ class IcyGridWorldEnv(gym.Env):
         agent_draw[6, 4:6] = 0.9
 
         #array of float: The static 7 x 7 image of the agent.
-        self._image_agent = agent_draw
+        self._img_agent = agent_draw
 
         # Draw reward image.
         reward_draw = np.zeros((7,7))
@@ -201,7 +201,7 @@ class IcyGridWorldEnv(gym.Env):
             reward_draw[i, 6-i] = 0.6
 
         #array of float: The static 7 x 7 image of the reward.
-        self._image_reward = reward_draw
+        self._img_reward = reward_draw
     
     def _get_image(self) -> np.ndarray:
         """
@@ -217,10 +217,10 @@ class IcyGridWorldEnv(gym.Env):
         reward_coord = np.array(self._reward_pos) * 7 + [7,7]
 
         # Draw agent into static image.
-        image[agent_coord[0]:agent_coord[0]+7, agent_coord[1]:agent_coord[1]+7] = self._image_agent
+        image[agent_coord[0]:agent_coord[0]+7, agent_coord[1]:agent_coord[1]+7] = self._img_agent
 
         # Draw reward into static image.
-        image[reward_coord[0]:reward_coord[0]+7, reward_coord[1]:reward_coord[1]+7] = self._image_reward
+        image[reward_coord[0]:reward_coord[0]+7, reward_coord[1]:reward_coord[1]+7] = self._img_reward
 
         return image
 
