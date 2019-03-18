@@ -7,8 +7,6 @@ import typing
 from typing import List, Tuple
 import cv2
 
-np.set_printoptions(threshold=np.nan)
-
 class IcyGridWorldEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
@@ -134,20 +132,27 @@ class IcyGridWorldEnv(gym.Env):
 
         return self._get_observation()
 
-    def render(self, mode='human', close=False) -> None:
+    def render(self, mode: str ='human') -> None:
         """
-        Renders the current state of the environment as an image.
+        Renders the current state of the environment as an image in a popup window.
+
+        Args:
+            mode (str): The mode in which the image is rendered. Defaults to 'human' for human-friendly. 
+                        Currently, only 'human' is supported.
         """
-        cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('image', 600,600)
-        cv2.imshow('image',np.uint8(self._img_current * 255))
-        cv2.waitKey(10)
+        if mode == 'human':
+            cv2.namedWindow('image', cv2.WINDOW_NORMAL)
+            cv2.resizeWindow('image', 600,600)
+            cv2.imshow('image',np.uint8(self._img_current * 255))
+            cv2.waitKey(10)
+        else:
+            raise NotImplementedError('We only support `human` render mode.')
  
     # ----------------- helper methods ---------------------------------------------------------------------
 
     def _get_static_image(self) -> None:
         """
-        Generate the static part of the gridworld image, i.e. walls.
+        Generate the static part of the gridworld image, i.e. walls, image of the agent and reward.
         """
         # Empty world.
         gridworld = np.zeros(self.observation_space.shape)
@@ -170,8 +175,33 @@ class IcyGridWorldEnv(gym.Env):
         for wall in walls_coord:
             gridworld[wall[0], wall[1]] = 1.
         
-        #array of float: The static part of the gridworld image.
+        #array of float: The static part of the gridworld image, i.e. walls.
         self._img_static = gridworld
+
+        # Draw agent image.
+        agent_draw = np.zeros((7,7))
+        agent_draw[0, 3] = 0.8
+        agent_draw[1, 0:7] = 0.9
+        agent_draw[2, 2:5] = 0.9
+        agent_draw[3, 2:5] = 0.9
+        agent_draw[4, 2] = 0.9
+        agent_draw[4, 4] = 0.9
+        agent_draw[5, 2] = 0.9
+        agent_draw[5, 4] = 0.9
+        agent_draw[6, 1:3] = 0.9
+        agent_draw[6, 4:6] = 0.9
+
+        #array of float: The static 7 x 7 image of the agent.
+        self._image_agent = agent_draw
+
+        # Draw reward image.
+        reward_draw = np.zeros((7,7))
+        for i in range(7):
+            reward_draw[i, i] = 0.6
+            reward_draw[i, 6-i] = 0.6
+
+        #array of float: The static 7 x 7 image of the reward.
+        self._image_reward = reward_draw
     
     def _get_image(self) -> np.ndarray:
         """
@@ -186,28 +216,11 @@ class IcyGridWorldEnv(gym.Env):
         #np.ndarray: the coordinate for the position of the reward in the image including walls
         reward_coord = np.array(self._reward_pos) * 7 + [7,7]
 
-        # Draw agent.
-        agent_draw = np.zeros((7,7))
-        agent_draw[0, 3] = 0.8
-        agent_draw[1, 0:7] = 0.9
-        agent_draw[2, 2:5] = 0.9
-        agent_draw[3, 2:5] = 0.9
-        agent_draw[4, 2] = 0.9
-        agent_draw[4, 4] = 0.9
-        agent_draw[5, 2] = 0.9
-        agent_draw[5, 4] = 0.9
-        agent_draw[6, 1:3] = 0.9
-        agent_draw[6, 4:6] = 0.9
+        # Draw agent into static image.
+        image[agent_coord[0]:agent_coord[0]+7, agent_coord[1]:agent_coord[1]+7] = self._image_agent
 
-        image[agent_coord[0]:agent_coord[0]+7, agent_coord[1]:agent_coord[1]+7] = agent_draw
-
-        # Draw reward.
-        reward_draw = np.zeros((7,7))
-        for i in range(7):
-            reward_draw[i, i] = 0.6
-            reward_draw[i, 6-i] = 0.6
-
-        image[reward_coord[0]:reward_coord[0]+7, reward_coord[1]:reward_coord[1]+7] = reward_draw
+        # Draw reward into static image.
+        image[reward_coord[0]:reward_coord[0]+7, reward_coord[1]:reward_coord[1]+7] = self._image_reward
 
         return image
 
@@ -223,7 +236,3 @@ class IcyGridWorldEnv(gym.Env):
         observation = np.reshape(observation, (2,self.observation_space.shape[0],self.observation_space.shape[1]))
 
         return observation
-
-
-
-

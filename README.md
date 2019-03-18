@@ -1,7 +1,7 @@
 # gym-icy-gridworld
 
 An openAI gym environment for representation learning within a reinforcement learning (RL) setting.
-This environment is build in accrodance with the [openAI gym](https://github.com/openai/gym/tree/master/gym/envs#how-to-create-new-environments-for-gym)
+This environment is build in accordance with the [openAI gym](https://github.com/openai/gym/tree/master/gym/envs#how-to-create-new-environments-for-gym)
 policy for standardized RL environments.
 
 ## GymIcyGridworldEnv
