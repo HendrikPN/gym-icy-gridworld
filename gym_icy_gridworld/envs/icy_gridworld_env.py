@@ -14,11 +14,13 @@ class IcyGridWorldEnv(gym.Env):
         """
         This environment is a common N x M gridworld where the agent is accelerated by each action. 
         The agent observes the whole world and has to find a way to quickly gather the reward = +1. 
-        By default the reward is 0.
-        At each reset, the agent is moved to its initial position and the reward is placed randomly.
+        A reward is obtained once the agent lands exactly on the rewarded position. By default the reward is 0.
+        At each reset, the agent is moved to its initial position and the reward is placed randomly
+        close to the border.
 
         Args:
-            grid_size (:obj:`list` of :obj:`str`): The size of the grid. Defaults to [10, 10].
+            grid_size (:obj:`list` of :obj:`int`): The size of the grid. Defaults to [10, 10].
+                                                   If an element is 1, the gridworld becomes one-dimensional.
             acceleration (int): The acceleration of the environment. Defaults to 0.
         """
         self._grid_size = grid_size
@@ -30,13 +32,13 @@ class IcyGridWorldEnv(gym.Env):
         #:class:`gym.Discrete`: The space of actions available to the agent.
         self.action_space=gym.spaces.Discrete(4)
         
-        #array of int: The initial position of the agent
-        self._agent_init = [int(self._grid_size[0]/2), int(self._grid_size[0]/2)]
-        #array of int: The current position of the agent
+        #array of int: The initial position of the agent.
+        self._agent_init = [int(self._grid_size[0]/2), int(self._grid_size[1]/2)]
+        #array of int: The current position of the agent.
         self._agent_pos = self._agent_init
-        #array of int: The current velocity of the agent in all directions
+        #array of int: The current velocity of the agent in all directions.
         self._agent_velocity = [0, 0]
-        #array of int: The current position of the reward
+        #array of int: The current position of the reward.
         self._reward_pos = [0, 0]
         
         #function: Sets the static part of the observed image, i.e. walls.
@@ -107,7 +109,7 @@ class IcyGridWorldEnv(gym.Env):
     def reset(self) -> np.ndarray:
         """
         Agent is reset to the initial position with velocity 0. 
-        Reward is placed randomly at a position <= grid_size/4 from the outer wall.
+        Reward is placed randomly at a position <= grid_size/3 from the outer wall if the size permits it.
 
         Returns:
             observation (numpy.ndarray): An array representing the current and the previous image of the environment.
@@ -115,8 +117,16 @@ class IcyGridWorldEnv(gym.Env):
         # Place the agent.
         self._agent_pos = self._agent_init
 
-        # Place reward at random.
-        distance = [np.random.choice(range(int(self._grid_size[0]/4))), np.random.choice(range(int(self._grid_size[1]/4)))]
+        # Place reward at random at distance <=grid_size/3 if dimensionality permits.
+        if self._grid_size[0] < 3:
+            dist_x = 1
+        else:
+            dist_x = 3
+        if self._grid_size[1] < 3:
+            dist_y = 1
+        else:
+            dist_y = 3
+        distance = [np.random.choice(range(int(self._grid_size[0]/dist_x))), np.random.choice(range(int(self._grid_size[1]/dist_y)))]
         if np.random.choice([0,1]):
             self._reward_pos[0] = distance[0]
         else:
@@ -144,7 +154,7 @@ class IcyGridWorldEnv(gym.Env):
             cv2.namedWindow('image', cv2.WINDOW_NORMAL)
             cv2.resizeWindow('image', 600,600)
             cv2.imshow('image',np.uint8(self._img_current * 255))
-            cv2.waitKey(10)
+            cv2.waitKey(50)
         else:
             raise NotImplementedError('We only support `human` render mode.')
  
@@ -170,7 +180,7 @@ class IcyGridWorldEnv(gym.Env):
                 walls_coord.append([i, j])
         for i in range(7):
             for j in range(self.observation_space.shape[1]):
-                walls_coord.append([self.observation_space.shape[1] - i - 1, j])
+                walls_coord.append([self.observation_space.shape[0] - i - 1, j])
 
         for wall in walls_coord:
             gridworld[wall[0], wall[1]] = 1.
@@ -197,8 +207,8 @@ class IcyGridWorldEnv(gym.Env):
         # Draw reward image.
         reward_draw = np.zeros((7,7))
         for i in range(7):
-            reward_draw[i, i] = 0.6
-            reward_draw[i, 6-i] = 0.6
+            reward_draw[i, i] = 0.7
+            reward_draw[i, 6-i] = 0.7
 
         #array of float: The static 7 x 7 image of the reward.
         self._img_reward = reward_draw
@@ -229,7 +239,7 @@ class IcyGridWorldEnv(gym.Env):
         Generates an observation from two sequenced images.
 
         Returns:
-            observation (numpy.ndarray): A 2 x grid_size*7 x grid_size*7 array representing a 
+            observation (numpy.ndarray): A 2 x (grid_size*7 + 2*7) x (grid_size*7 + 2*7) array representing a 
                                          time sequence of images of the environment.
         """
         observation = np.concatenate((self._img_previous, self._img_current), axis=0)
