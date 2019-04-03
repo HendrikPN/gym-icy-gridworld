@@ -10,7 +10,7 @@ import cv2
 class IcyGridWorldEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, grid_size: List[int] = [10,10], acceleration: int = 0):
+    def __init__(self, **kwargs):
         """
         This environment is a common N x M gridworld where the agent is accelerated by each action. 
         The agent observes the whole world and has to find a way to quickly gather the reward = +1. 
@@ -19,12 +19,19 @@ class IcyGridWorldEnv(gym.Env):
         close to the border.
 
         Args:
-            grid_size (:obj:`list` of :obj:`int`): The size of the grid. Defaults to [10, 10].
-                                                   If an element is 1, the gridworld becomes one-dimensional.
-            acceleration (int): The acceleration of the environment. Defaults to 0.
+            **kwargs:
+                grid_size (:obj:`list` of :obj:`int`): The size of the grid. Defaults to [10, 10].
+                                                       If an element is 1, the gridworld becomes one-dimensional.
+                acceleration (int): The acceleration of the environment. Defaults to 0.
         """
-        self._grid_size = grid_size
-        self._acceleration = acceleration
+        if 'grid_size' in kwargs:
+            setattr(self, '_grid_size', kwargs['grid_size'])
+        else:
+            setattr(self, '_grid_size', [10, 10])
+        if 'acceleration' in kwargs:
+            setattr(self, '_acceleration', kwargs['acceleration'])
+        else:
+            setattr(self, '_acceleration', 0)
         self._img_size = (np.array(self._grid_size) + np.array([2, 2])) * 7 #: image size is [(grid_size + walls) * 7]^2 pixels
 
         #:class:`gym.Box`: The specifications of the image to be used as observation.
