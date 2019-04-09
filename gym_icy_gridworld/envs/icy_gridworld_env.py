@@ -15,6 +15,8 @@ class IcyGridWorldEnv(gym.Env):
         This environment is a common N x M gridworld where the agent is accelerated by each action. 
         The agent observes the whole world and has to find a way to quickly gather the reward = +1. 
         A reward is obtained once the agent lands exactly on the rewarded position. By default the reward is 0.
+        An episode ends if the reward has been obtained or the maximum number of steps is exceeded. 
+        By default there is no restriction ot the number of steps.
         At each reset, the agent is moved to its initial position and the reward is placed randomly
         close to the border.
 
@@ -23,15 +25,20 @@ class IcyGridWorldEnv(gym.Env):
                 grid_size (:obj:`list` of :obj:`int`): The size of the grid. Defaults to [10, 10].
                                                        If an element is 1, the gridworld becomes one-dimensional.
                 acceleration (int): The acceleration of the environment. Defaults to 0.
+                max_steps (int): The maximum number of allowed time steps. Defaults to 0, i.e. no restriction.
         """
-        if 'grid_size' in kwargs:
+        if 'grid_size' in kwargs and type(kwargs['grid_size']) is list:
             setattr(self, '_grid_size', kwargs['grid_size'])
         else:
             setattr(self, '_grid_size', [10, 10])
-        if 'acceleration' in kwargs:
+        if 'acceleration' in kwargs and type(kwargs['acceleration']) is int:
             setattr(self, '_acceleration', kwargs['acceleration'])
         else:
             setattr(self, '_acceleration', 0)
+        if 'max_steps' in kwargs and type(kwargs['max_steps']) is int:
+            setattr(self, '_max_steps', kwargs['max_steps'])
+        else:
+            setattr(self, '_max_steps', 0)
         self._img_size = (np.array(self._grid_size) + np.array([2, 2])) * 7 #: image size is [(grid_size + walls) * 7]^2 pixels
 
         #:class:`gym.Box`: The specifications of the image to be used as observation.
@@ -54,12 +61,15 @@ class IcyGridWorldEnv(gym.Env):
         self._img_current = np.zeros(self.observation_space.shape)
         #np.array of float: The previously observed image.
         self._img_previous = np.zeros(self.observation_space.shape)
+        #int: Number of time steps since last reset.
+        self._time_steps = 0
 
     def step(self, action: int) -> Tuple[np.ndarray, float, bool]:
         """
         An action increases the velocity of an agent in one direction. and forces a move in that direction according to its speed.
         A move is forced according to the agent's velocity.
         If the agent encounters a wall along one direction, the velocity is set to zero in that direction and the agent stops.
+        If the maximum number of steps is exceeded the agent receives a negative reward.
 
         Args:
             action (int): The index of the action to be taken.
@@ -97,12 +107,17 @@ class IcyGridWorldEnv(gym.Env):
                 self._agent_velocity[index] = 0
                 self._agent_pos[index] = 0
 
-        # Check whether reward was found.
+        # Check whether reward was found. Last step may get rewarded.
         if self._agent_pos == self._reward_pos:
-            reward = 1
+            reward = 1.
             done = True
+        # Check whether maximum number of time steps has been reached.
+        elif self._max_steps and self._time_steps >= self._max_steps:
+            reward = -1.
+            done = True
+        # Continue otherwise.
         else:
-            reward = 0
+            reward = 0.
             done = False
 
         # Set previous image
@@ -121,6 +136,9 @@ class IcyGridWorldEnv(gym.Env):
         Returns:
             observation (numpy.ndarray): An array representing the current and the previous image of the environment.
         """
+        # Reset internal timer.
+        self._time_steps = 0
+
         # Place the agent.
         self._agent_pos = self._agent_init
 

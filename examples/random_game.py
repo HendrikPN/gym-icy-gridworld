@@ -4,7 +4,7 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../gym_icy_gridworld/envs'))
 from icy_gridworld_env import IcyGridWorldEnv
 
-ENV_PARAMS = {"grid_size": [1, 20], "acceleration": 1}
+ENV_PARAMS = {"grid_size": [1, 20], "acceleration": 1, "max_steps": 100}
 
 env = IcyGridWorldEnv(**ENV_PARAMS)
 
