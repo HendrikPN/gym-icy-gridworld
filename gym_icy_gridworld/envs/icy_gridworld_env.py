@@ -62,7 +62,7 @@ class IcyGridWorldEnv(gym.Env):
         #np.array of float: The previously observed image.
         self._img_previous = np.zeros(self.observation_space.shape)
         #int: Number of time steps since last reset.
-        self._time_steps = 0
+        self._time_step = 0
 
     def step(self, action: int) -> Tuple[np.ndarray, float, bool]:
         """
@@ -108,11 +108,12 @@ class IcyGridWorldEnv(gym.Env):
                 self._agent_pos[index] = 0
 
         # Check whether reward was found. Last step may get rewarded.
+        self._time_step += 1
         if self._agent_pos == self._reward_pos:
             reward = 1.
             done = True
         # Check whether maximum number of time steps has been reached.
-        elif self._max_steps and self._time_steps >= self._max_steps:
+        elif self._max_steps and self._time_step >= self._max_steps:
             reward = -1.
             done = True
         # Continue otherwise.
@@ -137,7 +138,7 @@ class IcyGridWorldEnv(gym.Env):
             observation (numpy.ndarray): An array representing the current and the previous image of the environment.
         """
         # Reset internal timer.
-        self._time_steps = 0
+        self._time_step = 0
 
         # Place the agent.
         self._agent_pos = self._agent_init
