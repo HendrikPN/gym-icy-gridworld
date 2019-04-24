@@ -17,8 +17,8 @@ class IcyGridWorldEnv(gym.Env):
         A reward is obtained once the agent lands exactly on the rewarded position. By default the reward is 0.
         An episode ends if the reward has been obtained or the maximum number of steps is exceeded. 
         By default there is no restriction ot the number of steps.
-        At each reset, the agent is moved to its initial position and the reward is placed randomly
-        close to the border.
+        At each reset, the agent is moved to a random position on the grid and the reward is placed randomly
+        at a certain minimum distance from the agent.
 
         Args:
             **kwargs:
@@ -45,11 +45,9 @@ class IcyGridWorldEnv(gym.Env):
         self.observation_space=gym.spaces.Box(low=0, high=1, shape=(self._img_size[0],self._img_size[1]), dtype=np.float32)
         #:class:`gym.Discrete`: The space of actions available to the agent.
         self.action_space=gym.spaces.Discrete(4)
-        
-        #array of int: The initial position of the agent.
-        self._agent_init = [int(self._grid_size[0]/2), int(self._grid_size[1]/2)]
+
         #array of int: The current position of the agent.
-        self._agent_pos = self._agent_init
+        self._agent_pos = [0, 0]
         #array of int: The current velocity of the agent in all directions.
         self._agent_velocity = [0, 0]
         #array of int: The current position of the reward.
@@ -69,7 +67,7 @@ class IcyGridWorldEnv(gym.Env):
         An action increases the velocity of an agent in one direction. and forces a move in that direction according to its speed.
         A move is forced according to the agent's velocity.
         If the agent encounters a wall along one direction, the velocity is set to zero in that direction and the agent stops.
-        If the maximum number of steps is exceeded the agent receives a negative reward.
+        If the maximum number of steps is exceeded, the agent receives a negative reward.
 
         Args:
             action (int): The index of the action to be taken.
@@ -131,8 +129,8 @@ class IcyGridWorldEnv(gym.Env):
 
     def reset(self) -> np.ndarray:
         """
-        Agent is reset to the initial position with velocity 0. 
-        Reward is placed randomly at a position <= grid_size/3 from the outer wall if the size permits it.
+        Agent is reset to a random position with velocity 0. 
+        Reward is placed randomly at a distance >= grid_size/3 from the agent.
 
         Returns:
             observation (numpy.ndarray): An array representing the current and the previous image of the environment.
@@ -140,27 +138,20 @@ class IcyGridWorldEnv(gym.Env):
         # Reset internal timer.
         self._time_step = 0
 
-        # Place the agent.
-        self._agent_pos = self._agent_init
+        # Place the agent randomly.
+        self._agent_pos = distance = [np.random.choice(range(self._grid_size[0])), np.random.choice(range(self._grid_size[1]))]
 
-        # Place reward at random at distance <=grid_size/3 if dimensionality permits.
-        if self._grid_size[0] < 3:
-            dist_x = 1
-        else:
-            dist_x = 3
-        if self._grid_size[1] < 3:
-            dist_y = 1
-        else:
-            dist_y = 3
-        distance = [np.random.choice(range(int(self._grid_size[0]/dist_x))), np.random.choice(range(int(self._grid_size[1]/dist_y)))]
-        if np.random.choice([0,1]):
-            self._reward_pos[0] = distance[0]
-        else:
-            self._reward_pos[0] = self._grid_size[0] - distance[0] - 1
-        if np.random.choice([0,1]):
-            self._reward_pos[1] = distance[1]
-        else:
-            self._reward_pos[1] = self._grid_size[1] - distance[1] - 1
+        # Reset velocity.
+        self._agent_velocity = [0, 0]
+
+        # Place reward at random at distance >=grid_size/3 from agent.
+        pos_x = []
+        pos_x.extend(range(0, self._agent_pos[0]-int(self._grid_size[0]/3)+1))
+        pos_x.extend(range(self._agent_pos[0]+int(self._grid_size[0]/3), self._grid_size[0]))
+        pos_y = []
+        pos_y.extend(range(0, self._agent_pos[1]-int(self._grid_size[1]/3)+1))
+        pos_y.extend(range(self._agent_pos[1]+int(self._grid_size[1]/3), self._grid_size[1]))
+        self._reward_pos = [np.random.choice(pos_x), np.random.choice(pos_y)]
 
         # Create initial image.
         self._img_current = self._get_image()
