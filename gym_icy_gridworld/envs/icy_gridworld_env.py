@@ -2,7 +2,7 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
-from operator import add
+from operator import add, sub
 import typing
 from typing import List, Tuple
 import cv2
@@ -174,6 +174,28 @@ class IcyGridWorldEnv(gym.Env):
             cv2.waitKey(50)
         else:
             raise NotImplementedError('We only support `human` render mode.')
+
+    def idealize_observation(self):
+        """
+        Calculates an ideal representation of the observation. 
+        The representation is given by (distance, velocity, position).
+
+        Returns:
+            observation (torch.Tensor): The ideal representation as observation.
+        """
+        try:
+            index_1d = self._grid_size.index(1)
+            index = (index_1d + 1)%2
+        except ValueError:
+            index = None
+        distance = list(map(sub, self._reward_pos, self._agent_pos))
+        velocity = self._agent_velocity
+        position = self._agent_pos
+        if not index is None:
+            observation = np.array([[distance[index], velocity[index], position[index]]])
+        else:
+            observation = np.array([[*distance, *velocity, *position]])
+        return observation
  
     # ----------------- helper methods ---------------------------------------------------------------------
 

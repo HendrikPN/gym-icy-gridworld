@@ -15,4 +15,5 @@ for i in range(3):
     env.render()
     while not done:
         (observation, reward, done) = env.step(np.random.choice(range(4)))
+        # print(f'Idealized observation: {env.idealize_observation()} as (d, v, x)')
         env.render()
