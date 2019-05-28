@@ -156,11 +156,13 @@ class IcyGridWorldEnv(gym.Env):
 
         # Place reward at random at distance >=2 from agent.
         pos_x = []
-        pos_x.extend(range(0, self._agent_pos[0]-2+1))
-        pos_x.extend(range(self._agent_pos[0]+2, self._grid_size[0]))
+        dist_x = 2 if self._grid_size[0] >= 2 else 0
+        pos_x.extend(range(0, self._agent_pos[0]-dist_x+1))
+        pos_x.extend(range(self._agent_pos[0]+dist_x, self._grid_size[0]))
         pos_y = []
-        pos_y.extend(range(0, self._agent_pos[1]-2+1))
-        pos_y.extend(range(self._agent_pos[1]+2, self._grid_size[1]))
+        dist_y = 2 if self._grid_size[1] >= 2 else 0
+        pos_y.extend(range(0, self._agent_pos[1]-dist_y+1))
+        pos_y.extend(range(self._agent_pos[1]+dist_y, self._grid_size[1]))
         self._reward_pos = [np.random.choice(pos_x), np.random.choice(pos_y)]
 
         # Create initial image.
