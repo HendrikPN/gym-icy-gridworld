@@ -193,7 +193,7 @@ class IcyGridWorldEnv(gym.Env):
         The representation is given by (distance, velocity, position).
 
         Returns:
-            observation (torch.Tensor): The ideal representation as observation.
+            observation (numpy.ndarray): The ideal representation as observation.
         """
         try:
             index_1d = self._grid_size.index(1)
