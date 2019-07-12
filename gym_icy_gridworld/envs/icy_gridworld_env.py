@@ -12,48 +12,48 @@ class IcyGridWorldEnv(gym.Env):
 
     def __init__(self, **kwargs):
         """
-        This environment is a N x M gridworld on a torus where the agent is accelerated by each action. 
-        The agent observes the whole world and has to find a way to quickly gather the reward = +1. 
-        A reward is obtained once the agent lands exactly on the rewarded position, 
-        but the reward is rescaled by the inverse velocity. By default the reward is 0.
-        An episode ends if the reward has been obtained or the maximum number of steps is exceeded.
+        This environment is a 1 x N gridworld on a torus with two objects
+        (square and star) which can be moved independent of each other by two
+        agents.
+        Starting the environment, a single agent is assigned either the square or
+        star which it can accelerate by each action while the other object is
+        fixed. The agent observes the whole world and has to find a way to
+        quickly capture the other object in order to obtain a reward = 1/v where
+        v is the current speed of the agent.
         By default there is no restriction of the number of steps.
-        The agent's speed is limited to 1/2 the size of the grid. It cannot exceed this speed.
-        At each reset, the agent is moved to a random position on the grid and the reward is placed randomly
-        at a certain minimum distance from the agent.
+        The agent's speed is limited to 1/2 the size of the grid. It cannot
+        exceed this speed. At each reset, the objects are moved to a random
+        position on the grid at a certain minimum distance from each other.
 
         Args:
             **kwargs:
-                grid_size (:obj:`list` of :obj:`int`): The size of the grid. Defaults to [10, 10].
-                                                       If an element is 1, the gridworld becomes one-dimensional.
-                acceleration (int): The acceleration of the environment. Defaults to 0.
+                grid_size (int): The size of the 1D grid. Defaults to 20.
+                agent_id (int): The agent id. Two agents are allowed, i.e. 0,1. Defaults to 0.
                 max_steps (int): The maximum number of allowed time steps. Defaults to 0, i.e. no restriction.
         """
-        if 'grid_size' in kwargs and type(kwargs['grid_size']) is list:
+        if 'grid_size' in kwargs and type(kwargs['grid_size']) is int:
             setattr(self, '_grid_size', kwargs['grid_size'])
         else:
-            setattr(self, '_grid_size', [10, 10])
-        if 'acceleration' in kwargs and type(kwargs['acceleration']) is int:
-            setattr(self, '_acceleration', kwargs['acceleration'])
+            setattr(self, '_grid_size', 20)
+        if 'agent_id' in kwargs and type(kwargs['agent_id']) is int:
+            setattr(self, '_agent_id', kwargs['agent_id'])
         else:
-            setattr(self, '_acceleration', 0)
+            setattr(self, '_agent_id', 0)
         if 'max_steps' in kwargs and type(kwargs['max_steps']) is int:
             setattr(self, '_max_steps', kwargs['max_steps'])
         else:
             setattr(self, '_max_steps', 0)
-        self._img_size = np.array(self._grid_size) * 7 #: image size is [x-size * 7, y-size * 7] pixels
+        self._img_size = np.array([1, self._grid_size]) * 7 #: image size is [7, size * 7] pixels
 
         #:class:`gym.Box`: The specifications of the image to be used as observation.
         self.observation_space=gym.spaces.Box(low=0, high=1, shape=(self._img_size[0],self._img_size[1]), dtype=np.float32)
         #:class:`gym.Discrete`: The space of actions available to the agent.
-        self.action_space=gym.spaces.Discrete(4)
+        self.action_space=gym.spaces.Discrete(2)
 
-        #array of int: The current position of the agent.
-        self._agent_pos = [0, 0]
-        #array of int: The current velocity of the agent in all directions.
-        self._agent_velocity = [0, 0]
-        #array of int: The current position of the reward.
-        self._reward_pos = [0, 0]
+        #array of int: The current position of the agents.
+        self._agents_pos = [0, 0]
+        #array of int: The current velocity of the agents.
+        self._agents_velocity = [0, 0]
         
         #function: Sets the static part of the observed image, i.e. walls.
         self._get_static_image()
@@ -66,12 +66,12 @@ class IcyGridWorldEnv(gym.Env):
 
     def step(self, action: int) -> Tuple[np.ndarray, float, bool]:
         """
-        An action increases the velocity of an agent in one direction.
-        A move is forced according to the agent's velocity.
-        The agent moves on a torus and reappears on the other side when crossing the border.
+        An action increases the velocity of an object in one direction.
+        A move is forced according to the object's velocity.
+        The object moves on a torus and reappears on the other side when crossing the border.
         If the maximum number of steps is exceeded, the agent receives a negative reward, and the game resets.
         The speed is limited by 1/2 the size of the grid.
-        Once the reward is hit, the actual reward is rescaled by the inverse velocity.
+        Once the other object is hit, the reward is rescaled by the inverse velocity.
 
         Args:
             action (int): The index of the action to be taken.
@@ -82,42 +82,33 @@ class IcyGridWorldEnv(gym.Env):
             done (bool): The information whether or not the episode is finished.
 
         """
-        # Action increases velocity according to acceleration. 
-        # If acceleration is 0, velocity is reset at each step.
-        if not self._acceleration:
-            self._agent_velocity = [0, 0]
+        # Action increases velocity according to direction. 
         if action == 0:
-            self._agent_velocity[0] += 1 * self._acceleration if self._acceleration else 1
+            self._agents_velocity[self._agent_id] += 1
         elif action == 1:
-            self._agent_velocity[1] += 1 * self._acceleration if self._acceleration else 1
-        elif action == 2:
-            self._agent_velocity[0] += -1 * self._acceleration if self._acceleration else -1
-        elif action == 3:
-            self._agent_velocity[1] += -1 * self._acceleration if self._acceleration else -1
+            self._agents_velocity[self._agent_id] += -1
         else:
             raise TypeError(f'The action is not valid. The action should be an integer 0 <= action <= {self.action_space.n}')
 
         # Maximum speed is given by the grid size.
-        if abs(self._agent_velocity[0]) > int(self._grid_size[0]/2):
-            self._agent_velocity[0] = int(self._grid_size[0]/2)
-        if abs(self._agent_velocity[1]) > int(self._grid_size[1]/2):
-            self._agent_velocity[1] = int(self._grid_size[1]/2)
+        if abs(self._agents_velocity[self._agent_id]) > int(self._grid_size/2):
+            self._agents_velocity[self._agent_id] = int(self._grid_size/2)
 
         # Move according to velocity.
-        self._agent_pos = list(map(add, self._agent_pos, self._agent_velocity))
+        self._agents_pos = list(map(add, self._agents_pos, self._agents_velocity))
 
         # If agent crosses the boundary of the gridworld, it is moved to the other side.
-        for index, pos in enumerate(self._agent_pos):
-            if pos >= self._grid_size[index]:
-                self._agent_pos[index] = pos - self._grid_size[index]
+        for index, pos in enumerate(self._agents_pos):
+            if pos >= self._grid_size:
+                self._agents_pos[self._agent_id] = pos - self._grid_size
             elif pos < 0:
-                self._agent_pos[index] = self._grid_size[index] + pos
+                self._agents_pos[self._agent_id] = self._grid_size + pos
 
         # Check whether reward was found. Last step may get rewarded.
         # Reward is rescaled by velocity.
         self._time_step += 1
-        if self._agent_pos == self._reward_pos:
-            rescale = float(sum(map(abs, self._agent_velocity)))
+        if self._agents_pos[0] == self._agents_pos[1]:
+            rescale = abs(self._agents_velocity[self._agent_id])
             reward = 1. * 1/rescale if rescale != 0 else 1.
             done = True
         # Check whether maximum number of time steps has been reached.
@@ -139,8 +130,8 @@ class IcyGridWorldEnv(gym.Env):
 
     def reset(self) -> np.ndarray:
         """
-        Agent is reset to a random position with velocity 0. 
-        Reward is placed randomly at a distance >= 2 from the agent.
+        Objects are reset to a random position with velocity 0 and a distance
+        >=2 to each other. 
 
         Returns:
             observation (numpy.ndarray): An array representing the current and the previous image of the environment.
@@ -148,22 +139,14 @@ class IcyGridWorldEnv(gym.Env):
         # Reset internal timer.
         self._time_step = 0
 
-        # Place the agent randomly.
-        self._agent_pos = distance = [np.random.choice(range(self._grid_size[0])), np.random.choice(range(self._grid_size[1]))]
+        # Place the agents randomly at distance at least 2.
+        dist = 0
+        while dist < 2:
+            self._agents_pos = [np.random.choice(range(self._grid_size)), np.random.choice(range(self._grid_size))]
+            dist = abs(self._agents_pos[0] - self._agents_pos[1])
 
         # Reset velocity.
-        self._agent_velocity = [0, 0]
-
-        # Place reward at random at distance >=2 from agent.
-        pos_x = []
-        dist_x = 2 if self._grid_size[0] >= 2 else 0
-        pos_x.extend(range(0, self._agent_pos[0]-dist_x+1))
-        pos_x.extend(range(self._agent_pos[0]+dist_x, self._grid_size[0]))
-        pos_y = []
-        dist_y = 2 if self._grid_size[1] >= 2 else 0
-        pos_y.extend(range(0, self._agent_pos[1]-dist_y+1))
-        pos_y.extend(range(self._agent_pos[1]+dist_y, self._grid_size[1]))
-        self._reward_pos = [np.random.choice(pos_x), np.random.choice(pos_y)]
+        self._agents_velocity = [0, 0]
 
         # Create initial image.
         self._img_current = self._get_image()
@@ -190,30 +173,22 @@ class IcyGridWorldEnv(gym.Env):
     def idealize_observation(self):
         """
         Calculates an ideal representation of the observation. 
-        The representation is given by (distance, velocity, position).
+        The representation is given by (distance, velocity_1, velocity_2, position_1).
 
         Returns:
             observation (numpy.ndarray): The ideal representation as observation.
         """
-        try:
-            index_1d = self._grid_size.index(1)
-            index = (index_1d + 1)%2
-        except ValueError:
-            index = None
-        distance = list(map(sub, self._reward_pos, self._agent_pos))
-        velocity = self._agent_velocity
-        position = self._agent_pos
-        if not index is None:
-            observation = np.array([[distance[index], velocity[index], position[index]]])
-        else:
-            observation = np.array([[*distance, *velocity, *position]])
+        distance = [self._agents_pos[0] - self._agents_pos[1]]
+        velocity = self._agents_velocity
+        position = [self._agents_pos[0]]
+        observation = np.array([[*distance, *velocity, *position]])
         return observation
  
     # ----------------- helper methods ---------------------------------------------------------------------
 
     def _get_static_image(self) -> None:
         """
-        Generate the static part of the gridworld image, i.e. walls, image of the agent and reward.
+        Generate the static part of the gridworld image, images of the objects.
 
         NOTE: By default, the gridworld on a torus does not have any walls.
         """
@@ -225,30 +200,27 @@ class IcyGridWorldEnv(gym.Env):
         #array of float: The static part of the gridworld image, i.e. walls.
         self._img_static = gridworld
 
-        # Draw agent image.
-        agent_draw = np.zeros((7,7))
-        agent_draw[0, 3] = 0.8
-        agent_draw[1, 0:7] = 0.9
-        agent_draw[2, 2:5] = 0.9
-        agent_draw[3, 2:5] = 0.9
-        agent_draw[4, 2] = 0.9
-        agent_draw[4, 4] = 0.9
-        agent_draw[5, 2] = 0.9
-        agent_draw[5, 4] = 0.9
-        agent_draw[6, 1:3] = 0.9
-        agent_draw[6, 4:6] = 0.9
-
-        #array of float: The static 7 x 7 image of the agent.
-        self._img_agent = agent_draw
-
-        # Draw reward image.
-        reward_draw = np.zeros((7,7))
+        # Draw first agent image, i.e. a square.
+        square_draw = np.zeros((7,7))
         for i in range(7):
-            reward_draw[i, i] = 0.7
-            reward_draw[i, 6-i] = 0.7
+            square_draw[0, i] = 1.
+            square_draw[6, i] = 1.
+            square_draw[i, 0] = 1.
+            square_draw[i, 6] = 1.
 
-        #array of float: The static 7 x 7 image of the reward.
-        self._img_reward = reward_draw
+        #array of float: The static 7 x 7 image of the first agent.
+        self._img_square = square_draw
+
+        # Draw second agent image, i.e. a star.
+        star_draw = np.zeros((7,7))
+        for i in range(7):
+            star_draw[i, i] = 1.
+            star_draw[i, 6-i] = 1.
+            star_draw[3, i] = 1.
+            star_draw[i, 3] = 1.
+
+        #array of float: The static 7 x 7 image of the second agent.
+        self._img_star= star_draw
     
     def _get_image(self) -> np.ndarray:
         """
@@ -259,15 +231,15 @@ class IcyGridWorldEnv(gym.Env):
         """
         image = self._img_static.copy()
         #np.ndarray: the coordinate for the position of the agent in the image including walls
-        agent_coord = np.array(self._agent_pos) * 7
+        square_coord = self._agents_pos[0] * 7
         #np.ndarray: the coordinate for the position of the reward in the image including walls
-        reward_coord = np.array(self._reward_pos) * 7
+        star_coord = self._agents_pos[1] * 7
 
-        # Draw agent into static image.
-        image[agent_coord[0]:agent_coord[0]+7, agent_coord[1]:agent_coord[1]+7] = self._img_agent
+        # Draw agent 1 into static image.
+        image[0:7, square_coord:square_coord+7] = self._img_square
 
-        # Draw reward into static image.
-        image[reward_coord[0]:reward_coord[0]+7, reward_coord[1]:reward_coord[1]+7] = self._img_reward
+        # Draw agent 2 into static image.
+        image[0:7, star_coord:star_coord+7] = self._img_star
 
         return image
 
@@ -276,7 +248,7 @@ class IcyGridWorldEnv(gym.Env):
         Generates an observation from two sequenced images.
 
         Returns:
-            observation (numpy.ndarray): A 2 x (grid_size*7 + 2*7) x (grid_size*7 + 2*7) array representing a 
+            observation (numpy.ndarray): A 2 x 7 x (grid_size*7) array representing a 
                                          time sequence of images of the environment.
         """
         observation = np.concatenate((self._img_previous, self._img_current), axis=0)
