@@ -14,6 +14,8 @@ for i in range(3000):
     done = False
     env.render()
     while not done:
-        (observation, reward, done) = env.step(np.random.choice(range(2)))
-        # print(f'Idealized observation: {env.idealize_observation()} as (d, v_1, v_2 x)')
+        action = np.random.choice(range(2))
+        (observation, reward, done) = env.step(action)
+        # print(f'Idealized observation: {env.idealize_observation()} as (d, v_1, v_2, x)')
+        # print(f'Simplified observation: {env.simplify_observation()} as (x_1, x_2, x_3, x_4)')
         env.render()

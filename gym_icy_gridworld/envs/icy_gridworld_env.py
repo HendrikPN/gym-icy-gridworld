@@ -183,6 +183,27 @@ class IcyGridWorldEnv(gym.Env):
         position = [self._agents_pos[0]]
         observation = np.array([[*distance, *velocity, *position]])
         return observation
+
+    def simplify_observation(self):
+        """
+        Calculates an simplified representation of the observation. 
+        The representation is given by (position_1, position_2, position_3, position_4)
+        where position_3 and _4 are the positions on the previous image.
+
+        Returns:
+            observation (numpy.ndarray): The simplified representation as observation.
+        """
+        pos_current = [self._agents_pos[0], self._agents_pos[1]]
+        pos_previous = list(map(sub, self._agents_pos, self._agents_velocity))
+
+        # If agent crosses the boundary of the gridworld, it is moved to the other side.
+        for index, pos in enumerate(pos_previous):
+            if pos >= self._grid_size:
+                pos_previous[self._agent_id] = pos - self._grid_size
+            elif pos < 0:
+                pos_previous[self._agent_id] = self._grid_size + pos
+        observation = np.array([[*pos_current, *pos_previous]])
+        return observation
  
     # ----------------- helper methods ---------------------------------------------------------------------
 
