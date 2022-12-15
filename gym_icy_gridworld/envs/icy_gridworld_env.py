@@ -6,6 +6,7 @@ from operator import add, sub
 import typing
 from typing import List, Tuple
 import cv2
+from collections import deque
 
 class IcyGridWorldEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -204,6 +205,31 @@ class IcyGridWorldEnv(gym.Env):
                 pos_previous[self._agent_id] = self._grid_size + pos
         observation = np.array([[*pos_current, *pos_previous]])
         return observation
+
+    def get_optimal_sequence(self) -> deque:
+        """
+        Given an initial state, returns the optimal action sequence.
+
+        Returns:
+            action_set (numpy.ndarray): The optimal action sequence.
+        """
+        if (np.array(self._agents_velocity) > 0.).any() or self._time_step > 0:
+            raise ValueError("Cannot evaluate optimal policy since the provided observation is not initial.")
+        if self._grid_size != 20:
+            raise NotImplementedError('We can only generate the optimal policy for grid size 20.')
+        
+        #
+        distance = self._agents_pos[self._agent_id] - self._agents_pos[(self._agent_id+1)%2]
+        if distance > 0:
+            actions = [1, 0] # reward is left to agent on grid
+        else:
+            distance = -1. * distance
+            actions = [0, 1] # reward is right to agent on grid
+        if distance > int(self._grid_size/2.): 
+            actions = list(reversed(actions)) # reward is closer in the other direction
+            distance = self._grid_size - distance
+        
+        return self._generate_optimal_sequence(distance, actions)
  
     # ----------------- helper methods ---------------------------------------------------------------------
 
@@ -276,3 +302,51 @@ class IcyGridWorldEnv(gym.Env):
         observation = np.reshape(observation, (2,self.observation_space.shape[0],self.observation_space.shape[1]))
 
         return observation
+
+    def _generate_optimal_sequence(self, distance, actions) -> deque:
+        action_sequence = deque()
+        # preliminary: if-else
+        if distance == 1:
+            sequence = [0]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        elif distance == 2 :
+            sequence = [0,1,0]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        elif distance == 3 :
+            sequence = [0,1,0,1,0]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        elif distance == 4 :
+            sequence = [0,0,1]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        elif distance == 5 :
+            sequence = [0,0,1,1,0]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        elif distance == 6 :
+            sequence = [0,0,1,1,0,1,0]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        elif distance == 7 :
+            sequence = [0,0,1,0,1]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        elif distance == 8 :
+            sequence = [0,0,1,0,1,1,0]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        elif distance == 9 :
+            sequence = [0,0,0,1,1]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        elif distance == 10 :
+            sequence = [0,0,0,1,1,1,0]
+            for i in sequence:
+                action_sequence.append(actions[i])
+        else:
+            ValueError(f"Distance should not be > 10, instead we got {distance}.")
+        
+        return action_sequence

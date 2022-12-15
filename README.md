@@ -7,7 +7,7 @@ policy for standardized RL environments.
 ## GymIcyGridworldEnv
 
 This environment is an empty N x M gridworld on a torus without walls. 
-At each reset, the agent reset randomly, and the reward is placed randomly at a minimum distance from the agent.
+At each reset, the agent resets to a random position, and the reward is placed randomly at a minimum distance from the agent.
 The observation at each time step consists of two images of the whole environment for the last two sequential time steps.
 The images are (N * 7 x M * 7) pixels and include the position of both agent and reward.
 Unlike the common gridworld environment this environment can be icy, which means that each action accelerates the agent in one direction. The velocity is limited by the grid size.
